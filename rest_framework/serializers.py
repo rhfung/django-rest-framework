@@ -863,6 +863,14 @@ class ModelSerializer(Serializer):
     # "HTTP 201 Created" responses.
     url_field_name = None
 
+    def pre_save(self, instance):
+        """
+        Perform pre-save validation on the model.
+        :param instance:
+        :return:
+        """
+        pass
+
     # Default `create` and `update` behavior...
     def create(self, validated_data):
         """
@@ -899,7 +907,9 @@ class ModelSerializer(Serializer):
                 many_to_many[field_name] = validated_data.pop(field_name)
 
         try:
-            instance = ModelClass.objects.create(**validated_data)
+            instance = ModelClass(**validated_data)
+            self.pre_save(instance)
+            self.save()
         except TypeError:
             tb = traceback.format_exc()
             msg = (
@@ -938,6 +948,7 @@ class ModelSerializer(Serializer):
                 set_many(instance, attr, value)
             else:
                 setattr(instance, attr, value)
+        self.pre_save(instance)
         instance.save()
 
         return instance
