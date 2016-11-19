@@ -909,7 +909,7 @@ class ModelSerializer(Serializer):
         try:
             instance = ModelClass(**validated_data)
             self.pre_save(instance)
-            self.save()
+            instance.save()
         except TypeError:
             tb = traceback.format_exc()
             msg = (
