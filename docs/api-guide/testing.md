@@ -162,7 +162,7 @@ The `credentials` method is appropriate for testing APIs that require authentica
 
 #### .force_authenticate(user=None, token=None)
 
-Sometimes you may want to bypass authentication, and simple force all requests by the test client to be automatically treated as authenticated.
+Sometimes you may want to bypass authentication entirely and force all requests by the test client to be automatically treated as authenticated.
 
 This can be a useful shortcut if you're testing the API but don't want to have to construct valid authentication credentials in order to make test requests.
 
@@ -205,7 +205,9 @@ Note that the requests client requires you to pass fully qualified URLs.
 
 ## `RequestsClient` and working with the database
 
-The `RequestsClient` class is useful if
+The `RequestsClient` class is useful if you want to write tests that solely interact with the service interface. This is a little stricter than using the standard Django test client, as it means that all interactions should be via the API.
+
+If you're using `RequestsClient` you'll want to ensure that test setup, and results assertions are performed as regular API calls, rather than interacting with the database models directly. For example, rather than checking that `Customer.objects.count() == 3` you would list the customers endpoint, and ensure that it contains three records.
 
 ## Headers & Authentication
 
@@ -373,6 +375,6 @@ For example, to add support for using `format='html'` in test requests, you migh
     }
 
 [cite]: http://jacobian.org/writing/django-apps-with-buildout/#s-create-a-test-wrapper
-[client]: https://docs.djangoproject.com/en/dev/topics/testing/tools/#the-test-client
-[requestfactory]: https://docs.djangoproject.com/en/dev/topics/testing/advanced/#django.test.client.RequestFactory
+[client]: https://docs.djangoproject.com/en/stable/topics/testing/tools/#the-test-client
+[requestfactory]: https://docs.djangoproject.com/en/stable/topics/testing/advanced/#django.test.client.RequestFactory
 [configuration]: #configuration

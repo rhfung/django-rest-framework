@@ -279,8 +279,11 @@ API responses for list endpoints will now include a `Link` header, instead of in
 ## Pagination & schemas
 
 You can also make the pagination controls available to the schema autogeneration
-that REST framework provides, by implementing a `get_schema_fields()` method,
-which should return a list of `coreapi.Field` instances.
+that REST framework provides, by implementing a `get_schema_fields()` method. This method should have the following signature:
+
+`get_schema_fields(self, view)`
+
+The method should return a list of `coreapi.Field` instances.
 
 ---
 
@@ -325,7 +328,7 @@ The [`DRF-extensions` package][drf-extensions] includes a [`PaginateByMaxMixin` 
 
 The [`drf-proxy-pagination` package][drf-proxy-pagination] includes a `ProxyPagination` class which allows to choose pagination class with a query parameter.
 
-[cite]: https://docs.djangoproject.com/en/dev/topics/pagination/
+[cite]: https://docs.djangoproject.com/en/stable/topics/pagination/
 [github-link-pagination]: https://developer.github.com/guides/traversing-with-pagination/
 [link-header]: ../img/link-header-pagination.png
 [drf-extensions]: http://chibisov.github.io/drf-extensions/docs/

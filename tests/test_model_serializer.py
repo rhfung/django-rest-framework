@@ -10,6 +10,7 @@ from __future__ import unicode_literals
 import decimal
 from collections import OrderedDict
 
+import pytest
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import (
     MaxValueValidator, MinLengthValidator, MinValueValidator
@@ -62,6 +63,7 @@ class RegularFieldsModel(models.Model):
     slug_field = models.SlugField(max_length=100)
     small_integer_field = models.SmallIntegerField()
     text_field = models.TextField(max_length=100)
+    file_field = models.FileField(max_length=100)
     time_field = models.TimeField()
     url_field = models.URLField(max_length=100)
     custom_field = CustomField()
@@ -94,8 +96,17 @@ class Issue3674ParentModel(models.Model):
 
 
 class Issue3674ChildModel(models.Model):
-    parent = models.ForeignKey(Issue3674ParentModel, related_name='children')
+    parent = models.ForeignKey(Issue3674ParentModel, related_name='children', on_delete=models.CASCADE)
     value = models.CharField(primary_key=True, max_length=64)
+
+
+class UniqueChoiceModel(models.Model):
+    CHOICES = (
+        ('choice1', 'choice 1'),
+        ('choice2', 'choice 1'),
+    )
+
+    name = models.CharField(max_length=254, unique=True, choices=CHOICES)
 
 
 class TestModelSerializer(TestCase):
@@ -171,6 +182,7 @@ class TestRegularFieldMappings(TestCase):
                 slug_field = SlugField(max_length=100)
                 small_integer_field = IntegerField()
                 text_field = CharField(max_length=100, style={'base_template': 'textarea.html'})
+                file_field = FileField(max_length=100)
                 time_field = TimeField()
                 url_field = URLField(max_length=100)
                 custom_field = ModelField(model_field=<tests.test_model_serializer.CustomField: custom_field>)
@@ -512,6 +524,37 @@ class TestRelationalFieldMappings(TestCase):
                     url = HyperlinkedIdentityField(view_name='throughtargetmodel-detail')
                     name = CharField(max_length=100)
         """)
+        self.assertEqual(unicode_repr(TestSerializer()), expected)
+
+    def test_nested_hyperlinked_relations_starred_source(self):
+        class TestSerializer(serializers.HyperlinkedModelSerializer):
+            class Meta:
+                model = RelationalModel
+                depth = 1
+                fields = '__all__'
+
+                extra_kwargs = {
+                    'url': {
+                        'source': '*',
+                    }}
+
+        expected = dedent("""
+            TestSerializer():
+                url = HyperlinkedIdentityField(source='*', view_name='relationalmodel-detail')
+                foreign_key = NestedSerializer(read_only=True):
+                    url = HyperlinkedIdentityField(view_name='foreignkeytargetmodel-detail')
+                    name = CharField(max_length=100)
+                one_to_one = NestedSerializer(read_only=True):
+                    url = HyperlinkedIdentityField(view_name='onetoonetargetmodel-detail')
+                    name = CharField(max_length=100)
+                many_to_many = NestedSerializer(many=True, read_only=True):
+                    url = HyperlinkedIdentityField(view_name='manytomanytargetmodel-detail')
+                    name = CharField(max_length=100)
+                through = NestedSerializer(many=True, read_only=True):
+                    url = HyperlinkedIdentityField(view_name='throughtargetmodel-detail')
+                    name = CharField(max_length=100)
+        """)
+        self.maxDiff = None
         self.assertEqual(unicode_repr(TestSerializer()), expected)
 
     def test_nested_unique_together_relations(self):
@@ -1013,7 +1056,7 @@ class Issue3674Test(TestCase):
             title = models.CharField(max_length=64)
 
         class TestChildModel(models.Model):
-            parent = models.ForeignKey(TestParentModel, related_name='children')
+            parent = models.ForeignKey(TestParentModel, related_name='children', on_delete=models.CASCADE)
             value = models.CharField(primary_key=True, max_length=64)
 
         class TestChildModelSerializer(serializers.ModelSerializer):
@@ -1064,3 +1107,31 @@ class Issue3674Test(TestCase):
 
         child_expected = {'parent': 1, 'value': 'def'}
         self.assertEqual(child_serializer.data, child_expected)
+
+
+class Issue4897TestCase(TestCase):
+    def test_should_assert_if_writing_readonly_fields(self):
+        class TestSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = OneFieldModel
+                fields = ('char_field',)
+                readonly_fields = fields
+
+        obj = OneFieldModel.objects.create(char_field='abc')
+
+        with pytest.raises(AssertionError) as cm:
+            TestSerializer(obj).fields
+        cm.match(r'readonly_fields')
+
+
+class Test5004UniqueChoiceField(TestCase):
+    def test_unique_choice_field(self):
+        class TestUniqueChoiceSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = UniqueChoiceModel
+                fields = '__all__'
+
+        UniqueChoiceModel.objects.create(name='choice1')
+        serializer = TestUniqueChoiceSerializer(data={'name': 'choice1'})
+        assert not serializer.is_valid()
+        assert serializer.errors == {'name': ['unique choice model with this name already exists.']}
